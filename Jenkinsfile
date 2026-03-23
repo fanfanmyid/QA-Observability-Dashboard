@@ -14,10 +14,13 @@ pipeline {
     stages {
         stage('1. Prepare Artifact') {
             steps {
-                echo "Packaging source code..."
+                echo "Packaging source code safely using /tmp..."
                 sh '''
-                    # Tambahkan --exclude="./${APP_NAME}.tar.gz" agar dia tidak membungkus dirinya sendiri
-                    tar --exclude='./node_modules' --exclude='./frontend/node_modules' --exclude='./.git' --exclude='./backend/venv' --exclude="./${APP_NAME}.tar.gz" -czf ${APP_NAME}.tar.gz .
+                    # 1. Taruh file .tar.gz di folder /tmp/ agar tidak mengubah isi folder saat ini (.)
+                    tar --exclude='./node_modules' --exclude='./frontend/node_modules' --exclude='./.git' --exclude='./backend/venv' -czf /tmp/${APP_NAME}.tar.gz .
+                    
+                    # 2. Setelah selesai dibungkus, pindahkan kembali ke workspace Jenkins
+                    mv /tmp/${APP_NAME}.tar.gz .
                 '''
             }
         }
