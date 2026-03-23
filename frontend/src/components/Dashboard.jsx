@@ -12,11 +12,20 @@ const fetchWithAuth = async (url) => {
   return res.json();
 };
 
+const formatTimestampID = (ms) => {
+  if (!ms) return '-';
+  return new Date(ms).toLocaleString('id-ID', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+};
+
 export default function Dashboard() {
   const [data, setData] = useState({ pipeline: null, tests: null, health: null, logs: null });
   const [logService, setLogService] = useState('backend');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -30,6 +39,7 @@ export default function Dashboard() {
         fetchWithAuth(`/api/qa/logs?service=${logService}`)
       ]);
       setData({ pipeline, tests, health, logs });
+      setLastUpdated(Date.now());
     } catch (err) {
       if (err.message === 'Unauthorized') {
         localStorage.removeItem('qa_dashboard_token');
@@ -52,7 +62,7 @@ export default function Dashboard() {
     navigate('/login');
   };
 
-  if (loading && !data.pipeline) {
+  if (loading && !data.pipeline && !lastUpdated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <RefreshCw className="animate-spin text-primary w-8 h-8" />
@@ -71,6 +81,10 @@ export default function Dashboard() {
         <span className="text-slate-400">Duration:</span>
         <span className="text-white">{dataObj?.duration}s</span>
       </div>
+      <div className="flex justify-between items-center text-sm mb-2">
+        <span className="text-slate-400">Timestamp:</span>
+        <span className="text-white text-xs">{formatTimestampID(dataObj?.timestamp)}</span>
+      </div>
       <div className="flex justify-between items-center text-sm">
         <span className="text-slate-400">Status:</span>
         <span className={`px-2 py-1 rounded-full text-xs font-bold ${dataObj?.status === 'SUCCESS' ? 'bg-accent/20 text-accent' : dataObj?.status === 'FAILURE' ? 'bg-danger/20 text-danger' : 'bg-primary/20 text-primary'}`}>
@@ -80,12 +94,18 @@ export default function Dashboard() {
     </div>
   );
 
-  const TestStats = ({ title, dataObj }) => {
+  const TestStats = ({ title, dataObj, pipelineTimestamp }) => {
     const total = dataObj?.total || 1;
     const coverage = Math.round(((dataObj?.passed || 0) / total) * 100) || 0;
     return (
       <div className="bg-slate-800/50 p-4 rounded-lg border border-dark-border mb-4">
         <h3 className="text-sm font-semibold text-slate-300 mb-3 uppercase tracking-wide">{title}</h3>
+        {pipelineTimestamp && (
+          <div className="flex justify-between items-center text-xs mb-3">
+             <span className="text-slate-400">Date:</span>
+             <span className="text-white">{formatTimestampID(pipelineTimestamp)}</span>
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2 text-center mb-3">
           <div className="bg-slate-900/50 p-2 rounded">
             <p className="text-lg font-bold text-accent">{dataObj?.passed || 0}</p>
@@ -121,6 +141,11 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-white tracking-wide">QA Observability Live</h1>
           </div>
           <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+            {lastUpdated && (
+              <span className="text-xs text-slate-400">
+                Last updated: {formatTimestampID(lastUpdated)}
+              </span>
+            )}
             <button onClick={loadData} className="p-2 text-slate-400 hover:text-white transition-colors" title="Refresh">
               <RefreshCw size={20} className={loading ? "animate-spin text-primary" : ""} />
             </button>
@@ -153,8 +178,8 @@ export default function Dashboard() {
               <Activity size={24} />
               <h2 className="text-xl font-semibold text-white">Test Suites</h2>
             </div>
-            <TestStats title="Backend API" dataObj={data.tests?.backend} />
-            <TestStats title="Frontend App" dataObj={data.tests?.frontend} />
+            <TestStats title="Backend API" dataObj={data.tests?.backend} pipelineTimestamp={data.pipeline?.backend?.timestamp} />
+            <TestStats title="Frontend App" dataObj={data.tests?.frontend} pipelineTimestamp={data.pipeline?.frontend?.timestamp} />
           </div>
 
           {/* Health Widget */}

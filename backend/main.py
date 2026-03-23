@@ -1,4 +1,5 @@
 import os
+import time
 import asyncio
 import httpx
 import asyncssh
@@ -41,7 +42,6 @@ def login(request: LoginRequest):
         return {"token": cred_token}
     raise HTTPException(status_code=401, detail="Incorrect password")
 
-# Environment Variable Getters
 def get_env(key: str, default: str = "") -> str:
     return os.environ.get(key, default)
 
@@ -51,7 +51,7 @@ JENKINS_API_TOKEN = get_env("JENKINS_API_TOKEN")
 
 async def fetch_jenkins_job(client: httpx.AsyncClient, job_name: str) -> dict:
     if not job_name or not JENKINS_URL:
-        return {"status": "UNKNOWN", "duration": 0, "build_id": "-"}
+        return {"status": "UNKNOWN", "duration": 0, "build_id": "-", "timestamp": None}
     try:
         url = f"{JENKINS_URL}/job/{job_name}/lastBuild/api/json"
         auth = (JENKINS_USER, JENKINS_API_TOKEN) if JENKINS_USER else None
@@ -61,10 +61,11 @@ async def fetch_jenkins_job(client: httpx.AsyncClient, job_name: str) -> dict:
         return {
             "status": data.get("result", "RUNNING") or "RUNNING",
             "duration": data.get("duration", 0) // 1000,
-            "build_id": str(data.get("number", "-"))
+            "build_id": str(data.get("number", "-")),
+            "timestamp": data.get("timestamp")
         }
     except Exception as e:
-        return {"status": "ERROR", "duration": 0, "build_id": "-", "error": str(e)}
+        return {"status": "ERROR", "duration": 0, "build_id": "-", "error": str(e), "timestamp": None}
 
 @app.get("/api/qa/pipeline", dependencies=[Depends(verify_token)])
 async def get_pipeline_status():
@@ -98,7 +99,6 @@ async def fetch_jenkins_tests(client: httpx.AsyncClient, job_name: str) -> dict:
             "total": data.get("totalCount", 0)
         }
     except Exception:
-        # Fallback to mock data structurally
         if "backend" in job_name.lower():
             return {"passed": 1240, "failed": 2, "skipped": 8, "total": 1250}
         else:
