@@ -66,7 +66,7 @@ pipeline {
                     // Cek apakah Nginx/React UI mengembalikan HTTP 200 OK
                     // Asumsi Frontend React jalan di port 80 pada docker-compose
                     def response = sh(
-                        script: "curl -s -o /dev/null -w '%{http_code}' http://${MONITORING_IP}/",
+                        script: "curl -s -o /dev/null -w '%{http_code}' http://${MONITORING_IP}:4000/",
                         returnStdout: true
                     ).trim()
                     
