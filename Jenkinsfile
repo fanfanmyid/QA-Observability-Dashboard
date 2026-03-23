@@ -16,8 +16,8 @@ pipeline {
             steps {
                 echo "Packaging source code..."
                 sh '''
-                    # Bungkus semua kode, tapi abaikan folder node_modules atau venv jika ada sisa dari lokal
-                    tar --exclude='./node_modules' --exclude='./frontend/node_modules' --exclude='./.git' --exclude='./backend/venv' -czf ${APP_NAME}.tar.gz .
+                    # Tambahkan --exclude="./${APP_NAME}.tar.gz" agar dia tidak membungkus dirinya sendiri
+                    tar --exclude='./node_modules' --exclude='./frontend/node_modules' --exclude='./.git' --exclude='./backend/venv' --exclude="./${APP_NAME}.tar.gz" -czf ${APP_NAME}.tar.gz .
                 '''
             }
         }
