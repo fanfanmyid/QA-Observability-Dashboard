@@ -170,6 +170,12 @@ async def get_logs(service: str = "backend"):
     if not host or not container:
         return ["Error: SSH host or container name not configured in env"]
 
+    # --- THE DEVOPS FILTER MAGIC ---
+    # 2>&1  : Menggabungkan error log dan standard log agar bisa difilter semua
+    # grep -v : Membuang baris yang mengandung kata tersebut (invert match)
+    # tail -n 50 : Mengambil 50 baris terakhir dari log yang SUDAH BERSIH
+    command = f"docker logs {container} 2>&1 | grep -v '/metrics' | grep -v '/api/v1/health' | grep -v '/stub_status' | tail -n 50"
+
     try:
         async with asyncssh.connect(
             host,
@@ -177,8 +183,12 @@ async def get_logs(service: str = "backend"):
             client_keys=[ssh_key],
             known_hosts=None
         ) as conn:
-            result = await conn.run(f"docker logs --tail 50 {container}", check=False)
-            logs = (result.stdout + result.stderr).split('\n')
-            return [line for line in logs if line.strip()][-50:]
+            result = await conn.run(command, check=False)
+            
+            # Karena stderr sudah digabung ke stdout oleh '2>&1', kita cukup baca stdout
+            logs = result.stdout.split('\n') 
+            
+            return [line for line in logs if line.strip()]
+            
     except Exception as e:
         return [f"ERROR fetching logs via SSH: [{host}] {str(e)}"]
