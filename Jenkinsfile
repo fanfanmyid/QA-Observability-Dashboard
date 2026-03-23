@@ -45,8 +45,8 @@ pipeline {
                                 tar -xzf ${APP_NAME}.tar.gz
                                 
                                 # Hentikan container lama, build ulang, dan jalankan di background
-                                docker-compose down
-                                docker-compose up -d --build
+                                docker compose down
+                                docker compose up -d --build
                                 
                                 # Bersihkan file tar
                                 rm ${APP_NAME}.tar.gz
