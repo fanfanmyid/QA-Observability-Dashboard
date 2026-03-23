@@ -102,8 +102,8 @@ export default function Dashboard() {
         <h3 className="text-sm font-semibold text-slate-300 mb-3 uppercase tracking-wide">{title}</h3>
         {pipelineTimestamp && (
           <div className="flex justify-between items-center text-xs mb-3">
-             <span className="text-slate-400">Date:</span>
-             <span className="text-white">{formatTimestampID(pipelineTimestamp)}</span>
+            <span className="text-slate-400">Date:</span>
+            <span className="text-white">{formatTimestampID(pipelineTimestamp)}</span>
           </div>
         )}
         <div className="grid grid-cols-3 gap-2 text-center mb-3">
@@ -138,7 +138,7 @@ export default function Dashboard() {
             <div className="bg-primary/20 p-2 rounded-lg border border-primary/30 text-primary">
               <ActivitySquare size={24} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-wide">QA Observability Live</h1>
+            <h1 className="text-2xl font-bold text-white tracking-wide">QA Observability Live - Study Tracker APP</h1>
           </div>
           <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
             {lastUpdated && (
@@ -188,7 +188,7 @@ export default function Dashboard() {
               <ActivitySquare size={24} />
               <h2 className="text-xl font-semibold text-white">System Health</h2>
             </div>
-            
+
             <div className="bg-slate-800/50 p-4 rounded-lg border border-dark-border mb-4">
               <h3 className="text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wide">Backend API</h3>
               <div className="flex justify-between items-center text-sm mb-2">
@@ -222,13 +222,13 @@ export default function Dashboard() {
               <h2 className="text-xl font-semibold text-white">Live Docker Logs</h2>
             </div>
             <div className="flex bg-slate-800 rounded-lg p-1 border border-dark-border">
-              <button 
+              <button
                 className={`px-4 py-1.5 text-sm rounded-md transition-colors ${logService === 'backend' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
                 onClick={() => setLogService('backend')}
               >
                 Backend
               </button>
-              <button 
+              <button
                 className={`px-4 py-1.5 text-sm rounded-md transition-colors ${logService === 'frontend' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
                 onClick={() => setLogService('frontend')}
               >
@@ -236,7 +236,7 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-          
+
           <div className="bg-[#0f111a] p-4 rounded-lg font-mono text-xs overflow-y-auto border border-slate-800 h-[250px] flex flex-col gap-1.5 custom-scrollbar">
             {data.logs && data.logs.length > 0 ? data.logs.map((log, i) => {
               const isError = log.includes('ERROR') || log.includes('Exception') || log.includes('Fail');
@@ -251,7 +251,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-        
+
       </div>
     </div>
   );
