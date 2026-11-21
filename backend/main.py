@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import shlex
 import httpx
 import asyncssh
 from typing import Optional
@@ -22,8 +23,8 @@ app.add_middleware(
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    cred_token = os.environ.get("CRED_TOKEN", "default-secure-token-123")
-    if credentials.credentials != cred_token:
+    cred_token = os.environ.get("CRED_TOKEN", "")
+    if not cred_token or credentials.credentials != cred_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -37,8 +38,8 @@ class LoginRequest(BaseModel):
 @app.post("/api/login")
 def login(request: LoginRequest):
     expected_password = os.environ.get("QA_DASHBOARD_PASSWORD", "")
-    if request.password == expected_password:
-        cred_token = os.environ.get("CRED_TOKEN", "")
+    cred_token = os.environ.get("CRED_TOKEN", "")
+    if expected_password and cred_token and request.password == expected_password:
         return {"token": cred_token}
     raise HTTPException(status_code=401, detail="Incorrect password")
 
@@ -89,7 +90,7 @@ async def fetch_jenkins_tests(client: httpx.AsyncClient, job_name: str) -> dict:
         auth = (JENKINS_USER, JENKINS_API_TOKEN) if JENKINS_USER else None
         response = await client.get(url, auth=auth, timeout=10.0)
         if response.status_code == 404:
-            return {"passed": 200, "failed": 1, "skipped": 5, "total": 206}
+            return {"passed": 0, "failed": 0, "skipped": 0, "total": 0, "note": "no test report published"}
         response.raise_for_status()
         data = response.json()
         return {
@@ -99,10 +100,7 @@ async def fetch_jenkins_tests(client: httpx.AsyncClient, job_name: str) -> dict:
             "total": data.get("totalCount", 0)
         }
     except Exception:
-        if "backend" in job_name.lower():
-            return {"passed": 1240, "failed": 2, "skipped": 8, "total": 1250}
-        else:
-            return {"passed": 480, "failed": 0, "skipped": 12, "total": 492}
+        return {"passed": 0, "failed": 0, "skipped": 0, "total": 0, "note": "test report unavailable"}
 
 @app.get("/api/qa/tests", dependencies=[Depends(verify_token)])
 async def get_test_stats():
@@ -162,6 +160,8 @@ async def get_health():
 
 @app.get("/api/qa/logs", dependencies=[Depends(verify_token)])
 async def get_logs(service: str = "backend"):
+    if service not in ("backend", "frontend"):
+        raise HTTPException(status_code=400, detail="service must be 'backend' or 'frontend'")
     host = get_env("BACKEND_SSH_HOST") if service == "backend" else get_env("FRONTEND_SSH_HOST")
     container = get_env("BACKEND_CONTAINER_NAME") if service == "backend" else get_env("FRONTEND_CONTAINER_NAME")
     ssh_user = get_env("SSH_USER", "root")
@@ -170,11 +170,15 @@ async def get_logs(service: str = "backend"):
     if not host or not container:
         return ["Error: SSH host or container name not configured in env"]
 
-    # --- THE DEVOPS FILTER MAGIC ---
-    # 2>&1  : Menggabungkan error log dan standard log agar bisa difilter semua
-    # grep -v : Membuang baris yang mengandung kata tersebut (invert match)
-    # tail -n 50 : Mengambil 50 baris terakhir dari log yang SUDAH BERSIH
-    command = f"docker logs {container} 2>&1 | grep -v '/metrics' | grep -v '/api/v1/health' | grep -v '/stub_status' | tail -n 50"
+    # Noise filter: merge stderr into stdout, drop health/metrics probe lines,
+    # then take the last 50 lines of the cleaned log. Container name is
+    # shell-quoted to prevent command injection via env configuration.
+    safe_container = shlex.quote(container)
+    command = (
+        f"docker logs {safe_container} 2>&1 "
+        "| grep -v '/metrics' | grep -v '/api/v1/health' | grep -v '/stub_status' "
+        "| tail -n 50"
+    )
 
     try:
         async with asyncssh.connect(
@@ -184,11 +188,8 @@ async def get_logs(service: str = "backend"):
             known_hosts=None
         ) as conn:
             result = await conn.run(command, check=False)
-            
-            # Karena stderr sudah digabung ke stdout oleh '2>&1', kita cukup baca stdout
-            logs = result.stdout.split('\n') 
-            
+            logs = result.stdout.split('\n')
             return [line for line in logs if line.strip()]
-            
+
     except Exception as e:
         return [f"ERROR fetching logs via SSH: [{host}] {str(e)}"]
